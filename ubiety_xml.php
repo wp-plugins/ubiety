@@ -1,6 +1,8 @@
 <?php
 require_once('ubiety_config.php');
-require_once('lib/Pusher.php');
+if(!class_exists('Pusher')) {
+	require_once('lib/Pusher.php');
+}
 @header("Cache-Control: no-cache, must-revalidate");
 @header("Pragma: no-cache");
 @header("Content-Type: application/json");

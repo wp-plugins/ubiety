@@ -46,15 +46,17 @@ if(!function_exists('ubiety_style')) {
 }
 if(!function_exists('ubiety_script')) {
 	function ubiety_script() {
-		if(preg_match('/^\/wp-admin\//',$_SERVER['PHP_SELF']) || preg_match('/^\/wp-login/',$_SERVER['PHP_SELF']) || !is_user_logged_in()) {
+		if(preg_match('/^\/wp-admin\//',$_SERVER['PHP_SELF']) || preg_match('/^\/wp-login/',$_SERVER['PHP_SELF'])) {
 			return;
 		}
+		wp_register_script('web-socket-js-swfobject',plugins_url('web-socket-js/swfobject.js', __FILE__));
+		wp_register_script('web-socket-js-web_socket', plugins_url('web-socket-js/web_socket.js', __FILE__));
 		wp_register_script('ubiety_script',plugins_url('ubiety.js.php',__FILE__),array('jquery'));
 		wp_register_script('jquery-ui','https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.15/jquery-ui.min.js',array('jquery'));
-		wp_register_script('pusher-js', 'https://d3dy5gmtp8yhk7.cloudfront.net/1.12/pusher.min.js');
+		wp_enqueue_script('web-socket-js-swfobject');
+		wp_enqueue_script('web-socket-js-web_socket');
 		wp_enqueue_script('ubiety_script');
 		wp_enqueue_script('jquery-ui');
-		wp_enqueue_script('pusher-js');
 	}
 }
 if(!function_exists('ubiety_wp_login')) {
@@ -66,7 +68,7 @@ if(!function_exists('ubiety_wp_login')) {
 if(!function_exists('ubiety_footer')) {
 	function ubiety_footer() {
 		$user=get_currentuserinfo();
-		if(preg_match('/^\/wp-admin\//',$_SERVER['PHP_SELF']) || preg_match('/^\/wp-login/',$_SERVER['PHP_SELF']) || !is_user_logged_in()) {
+		if(preg_match('/^\/wp-admin\//',$_SERVER['PHP_SELF']) || preg_match('/^\/wp-login/',$_SERVER['PHP_SELF'])) {
 			return;
 		}
 		echo "<div id='ubiety-bar'>\n";

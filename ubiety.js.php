@@ -9,6 +9,15 @@ get_currentuserinfo();
 ?>
 //begin JS
 
+WEB_SOCKET_FORCE_FLASH = true;
+WEB_SOCKET_SWF_LOCATION = "<?= plugins_url('web-socket-js/WebSocketMain.swf', __FILE__); ?>";
+WEB_SOCKET_DEBUG = true;
+if(!window.console) {
+	window.console = {
+		log: function() {}
+	};
+}
+
 (function($) {
 	$(document).ready(function() {
 		window.ubiety = new Ubiety();
@@ -27,17 +36,20 @@ get_currentuserinfo();
 		$messages: null,
 		$msg: null,
 		window_state: null,
-		pusher: null,
-		channel: null,
-		pusher_me: null,
-		pusher_socket_id: null,
+		socket: null,
+		members: null,
+		my_id: null,
 		constants: {
 			window_state: {
 				OPEN: 1,
 				CLOSED: 2
 			},
-			pusher: {
-				app_key: '<?php echo get_option('ubiety_app_key'); ?>'
+			
+			opcode: {
+				MESSAGE: 0,
+				NAME_CHANGE: 1,
+				CHANNEL_LIST: 2,
+				ID_NOTIFY: 3
 			}
 		},
 		
@@ -52,7 +64,7 @@ get_currentuserinfo();
 			});
 			
 			self.$msg.keypress(function(e) {
-				if(e.keyCode == 13 && self.pusher_me != null && self.$msg.val().length != 0) {
+				if(e.keyCode == 13 && self.$msg.val().length != 0) {
 					self.sendMessage(self.$msg.val());
 					self.$msg.val('');
 				}	
@@ -65,6 +77,45 @@ get_currentuserinfo();
 			self.window_state = self.constants.window_state.CLOSED;
 		},
 		
+		genRand: function() {
+			var self = this;
+			var length = 5;
+			var rand = -1;
+			var str = "";
+			while(length) {
+				while(!(rand > 96 && rand < 123) && !(rand > 64 && rand < 91)) {
+					var rand = Math.round(Math.random() * 1000);
+					rand = (rand % 58) + 65;
+				}
+				str += String.fromCharCode(rand);
+				rand = -1;
+				length--;
+			}
+			return str;
+		},
+		
+		handleMessage: function(data) {
+			var self = this;
+			var member = null;
+			for(var i = 0; i < self.members.length; i++) {
+				if(self.members[i].id == data[0]) {
+					member = self.members[i];
+					break;
+				}
+			}
+			if(member == null) {
+				member = {name: 'Unknown', id: -1}; //wtf
+			}
+			self.$messages.append("<div><strong>&lt;" + member.name + "&gt;</strong>&nbsp;" + data[1] + "</div>");
+			self.$messages.scrollTop(self.$messages.prop('scrollHeight'));
+			
+		},
+		
+		handleNameChange: function(data) {
+			var self = this;
+			self.socket.send(self.constants.opcode.CHANNEL_LIST + "::list");
+		},
+		
 		init: function() {
 			var self = this;
 			self.window_state = self.constants.window_state.CLOSED;
@@ -74,10 +125,54 @@ get_currentuserinfo();
 			self.$online_count = $("#online-count");
 			self.$messages = $("#ubiety-messages");
 			self.$msg = $("#msg");
+			self.members = Array();
 			self.bindEvents();
-			self.pusherInit();
+			self.socketInit();
 		},
 		
+		onclose: function(e) {
+			var self = this;
+			console.log("onclose fired");
+		},
+		
+		onerror: function(e) {
+			var self = this;
+			console.log("onerror fired");
+		},
+		
+		onmessage: function(e) {
+			var self = this;
+			var data = e.data.split("::");
+			var opcode = parseInt(data[0], 10);
+			data.splice(0,1);
+			switch(opcode) {
+				case self.constants.opcode.MESSAGE:
+					self.handleMessage(data);
+					break;
+				case self.constants.opcode.NAME_CHANGE:
+					self.handleNameChange(data);
+					break;
+				case self.constants.opcode.CHANNEL_LIST:
+					self.updateChannelList(data[0].split("||"));
+					break;
+				case self.constants.opcode.ID_NOTIFY:
+					self.my_id = parseInt(data, 10);
+					break; 
+				default:
+					console.log("Unhandled opcode: " + opcode);
+			}
+			
+			
+			console.log("Message was: " + e.data);
+		},
+		
+		onopen: function(e) {
+			console.log("onopen fired");
+			var self = this;
+			var guest_name = "Guest_" + self.genRand();
+			self.socket.send(guest_name + "::" + self.genRand() + "::" + location.host);
+		},
+
 		openWindow: function() {
 			var self = this;
 			self.$window.css("display", "block");
@@ -87,70 +182,6 @@ get_currentuserinfo();
 			self.$window.css("left", left+"px");
 			self.$msg.focus();
 			self.window_state = self.constants.window_state.OPEN;
-			
-		},
-		
-		pusherHandleMessage: function(data) {
-			var self = this;
-			var user = self.channel.members.get(data.userid);
-			self.$messages.append("<div><strong>&lt;" + user.info.display_name + "&gt;</strong>&nbsp;" + data.msg.replace("\\","") + "</div>");
-			self.$messages.scrollTop(self.$messages.prop('scrollHeight'));
-		},
-		
-		pusherInit: function() {
-			var self = this;
-			if(self.constants.pusher.app_key == "APP_KEY") {
-				alert("You haven't configured ubiety yet.  Please go to pusher.com and register for a free API account.  Then under wordpress admin, set the app_id, app_key, and app_secret.");
-				self.$bar.hide();
-				return false;
-			}
-			Pusher.log = function(message) { self.pusherLog(message); }
-			Pusher.channel_auth_endpoint = "<?php echo plugins_url('/ubiety/ubiety_xml.php?action=pusherauth'); ?>";
-			self.pusher = new Pusher(self.constants.pusher.app_key);
-			self.pusher.connection.bind('connected', function() {
-				self.pusher_socket_id = self.pusher.connection.socket_id;
-			});
-			self.channel = self.pusher.subscribe('presence-ubiety');
-			self.channel.bind('pusher:subscription_succeeded', function(members) {
-				self.pusherSubscriptionSucceeded(members);
-			});
-			self.channel.bind('message', function(data) {
-				self.pusherHandleMessage(data);
-			});
-			self.channel.bind('pusher:member_added', function(member) {
-				self.pusherMemberAdded(member);
-			});
-			self.channel.bind('pusher:member_removed', function(member) {
-				self.pusherMemberRemoved(member);
-			});
-			
-		},
-		
-		pusherLog: function(msg) {
-			console.log(msg);
-		},
-		
-		pusherMemberAdded: function(m) {
-			var self = this;
-			self.$messages.append("<div>*** " + m.info.display_name + " has joined chat. ***</div>");
-			self.$messages.scrollTop(self.$messages.prop('scrollHeight'));
-			self.redrawOnline(self.channel.members);
-			self.updateUserCount(self.channel.members.count);
-		},
-		
-		pusherMemberRemoved: function(m) {
-			var self = this;
-			self.$messages.append("<div>*** " + m.info.display_name + " has left chat. ***</div>");
-			self.$messages.scrollTop(self.$messages.prop('scrollHeight'));
-			self.redrawOnline(self.channel.members);
-			self.updateUserCount(self.channel.members.count);
-		},
-		
-		pusherSubscriptionSucceeded: function(members) {
-			var self = this;
-			self.pusher_me = members.me;
-			self.updateUserCount(members.count);
-			self.redrawOnline(members);
 		},
 		
 		redrawOnline: function(members) {
@@ -168,18 +199,27 @@ get_currentuserinfo();
 			var self = this;
 			msg = msg.replace("<", "&lt;");
 			msg = msg.replace(">", "&gt;");
-			var promise = $.ajax({
-				url: '<?php echo plugins_url('/ubiety/ubiety_xml.php?action=sendmsg'); ?>',
-				type: 'POST',
-				dataType: 'json',
-				data: {
-					socket_id: self.pusher_socket_id,
-					msg: msg,
-					userid: self.pusher_me.info.ID
-				}
-			});
-			self.$messages.append("<div><strong>&lt;" + self.pusher_me.info.display_name + "&gt;</strong>&nbsp;" + msg + "</div>");
-			self.$messages.scrollTop(self.$messages.prop('scrollHeight'));
+			self.socket.send(self.constants.opcode.MESSAGE + "::" + msg);
+		},
+		
+		socketInit: function() {
+			var self = this;
+			console.log("Initting webSocket.");
+			self.socket = new WebSocket("ws://ubiety.net:8080");
+			self.socket.onopen = function(e) {
+				self.onopen(e);
+			};
+			self.socket.onmessage = function(e) {
+				self.onmessage(e);
+			};
+			self.socket.onclose = function(e) {
+				self.onclose(e);
+			};
+			self.socket.onerror = function(e) {
+				self.onerror(e);
+			};
+
+			
 		},
 		
 		toggleWindow: function() {
@@ -194,6 +234,28 @@ get_currentuserinfo();
 					self.closeWindow();
 					break;
 			}
+		},
+		
+		updateChannelList: function(arr) {
+			var self = this;
+			self.members = new Array();
+			var $ul = $('<ul/>');
+			for(var i = 0; i < arr.length; i++) {
+				var member_data = arr[i].split(",");
+				var member = {
+					id: member_data[0],
+					name: member_data[1]
+				};
+				self.members.push(member);
+				var $li = $('<li/>').html(member.name);
+				if(member.id == self.my_id) {
+					$li.css("font-weight", "bold");
+				}
+				$ul.append($li);
+			}
+			self.$online_list.html('');
+			self.$online_list.append($ul);
+			self.$online_count.html(self.members.length);
 		},
 		
 		updateUserCount: function(count) {
