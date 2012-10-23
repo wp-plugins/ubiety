@@ -205,7 +205,7 @@ if(!window.console) {
 		socketInit: function() {
 			var self = this;
 			console.log("Initting webSocket.");
-			self.socket = new WebSocket("ws://ubiety.net");
+			self.socket = new WebSocket("ws://ubiety.net:8080");
 			self.socket.onopen = function(e) {
 				self.onopen(e);
 			};
