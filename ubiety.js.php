@@ -9,15 +9,6 @@ get_currentuserinfo();
 ?>
 //begin JS
 
-WEB_SOCKET_FORCE_FLASH = true;
-WEB_SOCKET_SWF_LOCATION = "<?= plugins_url('web-socket-js/WebSocketMain.swf', __FILE__); ?>";
-WEB_SOCKET_DEBUG = true;
-if(!window.console) {
-	window.console = {
-		log: function() {}
-	};
-}
-
 (function($) {
 	$(document).ready(function() {
 		window.ubiety = new Ubiety();
@@ -35,10 +26,13 @@ if(!window.console) {
 		$online_count: null,
 		$messages: null,
 		$msg: null,
+		$change_name: null,
+		$change_name_btn: null,
 		window_state: null,
 		socket: null,
 		members: null,
 		my_id: null,
+		my_name: null,
 		constants: {
 			window_state: {
 				OPEN: 1,
@@ -49,7 +43,8 @@ if(!window.console) {
 				MESSAGE: 0,
 				NAME_CHANGE: 1,
 				CHANNEL_LIST: 2,
-				ID_NOTIFY: 3
+				ID_NOTIFY: 3,
+				CHANNEL_JOIN: 4
 			}
 		},
 		
@@ -68,6 +63,17 @@ if(!window.console) {
 					self.sendMessage(self.$msg.val());
 					self.$msg.val('');
 				}	
+			});
+			
+			self.$change_name.keypress(function(e) {
+				if(e.keyCode == 13) {
+					self.$change_name_btn.trigger('click');
+				}
+			});
+			
+			self.$change_name_btn.click(function(e) {
+				self.socket.send(self.constants.opcode.NAME_CHANGE + "::" + self.$change_name.val());
+				self.$msg.focus();
 			});
 		},
 		
@@ -113,6 +119,21 @@ if(!window.console) {
 		
 		handleNameChange: function(data) {
 			var self = this;
+			var old_name = "";
+			if(data[0] == self.my_id) {
+				self.my_name = data[1];
+				self.$change_name.val(self.my_name);
+				self.$messages.append("<div><strong>** You are now known as " + data[1] + "</strong></div>");
+				self.socket.send(self.constants.opcode.CHANNEL_LIST + "::list");
+				return;
+			}
+			for(var i = 0; i < self.members.length; i++) {
+				if(self.members[i].id == data[0]) {
+					old_name = self.members[i].name;
+					break;
+				} 
+			}
+			self.$messages.append("<div><strong>** " + old_name + " is now known as " + data[1] + "</strong></div>");
 			self.socket.send(self.constants.opcode.CHANNEL_LIST + "::list");
 		},
 		
@@ -125,6 +146,8 @@ if(!window.console) {
 			self.$online_count = $("#online-count");
 			self.$messages = $("#ubiety-messages");
 			self.$msg = $("#msg");
+			self.$change_name = $("#change_name");
+			self.$change_name_btn = $("#change_name_btn");
 			self.members = Array();
 			self.bindEvents();
 			self.socketInit();
@@ -132,12 +155,10 @@ if(!window.console) {
 		
 		onclose: function(e) {
 			var self = this;
-			console.log("onclose fired");
 		},
 		
 		onerror: function(e) {
 			var self = this;
-			console.log("onerror fired");
 		},
 		
 		onmessage: function(e) {
@@ -157,7 +178,10 @@ if(!window.console) {
 					break;
 				case self.constants.opcode.ID_NOTIFY:
 					self.my_id = parseInt(data, 10);
-					break; 
+					break;
+				case self.constants.opcode.CHANNEL_JOIN:
+					self.$messages.append("<strong>*** " + data[0] + " joined</strong>");
+					break;
 				default:
 					console.log("Unhandled opcode: " + opcode);
 			}
@@ -167,10 +191,9 @@ if(!window.console) {
 		},
 		
 		onopen: function(e) {
-			console.log("onopen fired");
 			var self = this;
 			var guest_name = "Guest_" + self.genRand();
-			self.socket.send(guest_name + "::" + self.genRand() + "::" + location.host);
+			self.socket.send(guest_name + "::<?= session_id() ?>::" + location.host);
 		},
 
 		openWindow: function() {
@@ -204,7 +227,6 @@ if(!window.console) {
 		
 		socketInit: function() {
 			var self = this;
-			console.log("Initting webSocket.");
 			self.socket = new WebSocket("ws://ubiety.net:8080");
 			self.socket.onopen = function(e) {
 				self.onopen(e);
@@ -250,6 +272,10 @@ if(!window.console) {
 				var $li = $('<li/>').html(member.name);
 				if(member.id == self.my_id) {
 					$li.css("font-weight", "bold");
+					if(member.name != self.my_name) {
+						self.my_name = member.name;
+						self.$change_name.val(self.my_name);
+					}
 				}
 				$ul.append($li);
 			}

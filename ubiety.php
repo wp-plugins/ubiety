@@ -49,12 +49,8 @@ if(!function_exists('ubiety_script')) {
 		if(preg_match('/^\/wp-admin\//',$_SERVER['PHP_SELF']) || preg_match('/^\/wp-login/',$_SERVER['PHP_SELF'])) {
 			return;
 		}
-		wp_register_script('web-socket-js-swfobject',plugins_url('web-socket-js/swfobject.js', __FILE__));
-		wp_register_script('web-socket-js-web_socket', plugins_url('web-socket-js/web_socket.js', __FILE__));
 		wp_register_script('ubiety_script',plugins_url('ubiety.js.php',__FILE__),array('jquery'));
 		wp_register_script('jquery-ui','https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.15/jquery-ui.min.js',array('jquery'));
-		wp_enqueue_script('web-socket-js-swfobject');
-		wp_enqueue_script('web-socket-js-web_socket');
 		wp_enqueue_script('ubiety_script');
 		wp_enqueue_script('jquery-ui');
 	}
@@ -83,7 +79,7 @@ if(!function_exists('ubiety_footer')) {
 				<td colspan='2'><div style='display:inline-table;float:left;'>Ubiety v<?php echo get_option('ubiety_version');?></div><div style='display:inline-table;float:right;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href='javascript:void(0);' id='closeX'>X</a></div></td>
 			</tr>
 			<tr class='tabledata'>
-				<td></td><td rowspan='2' style='width:25%;text-align:center;vertical-align:top;border-left:1px solid black'><strong>Online</strong><div id='online-list'></div></td>
+				<td><input type="text" id="change_name" size="15"/>&nbsp;<input type="button" id="change_name_btn" value="Change Name" style="float:right;"/><td rowspan='2' style='width:25%;text-align:center;vertical-align:top;border-left:1px solid black'><strong>Online</strong><div id='online-list'></div></td>
 			</tr>
 			<tr class='tabledata'>
 				<td>
