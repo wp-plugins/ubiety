@@ -9,6 +9,7 @@ get_currentuserinfo();
 ?>
 //begin JS
 
+WEB_SOCKET_SWF_LOCATION = "web-socket-js/WebSocketMain.swf";
 (function($) {
 	$(document).ready(function() {
 		window.ubiety = new Ubiety();
@@ -227,7 +228,7 @@ get_currentuserinfo();
 		
 		socketInit: function() {
 			var self = this;
-			self.socket = new WebSocket("ws://ubiety.net:8080");
+			self.socket = new WebSocket("wss://ubiety.net");
 			self.socket.onopen = function(e) {
 				self.onopen(e);
 			};
