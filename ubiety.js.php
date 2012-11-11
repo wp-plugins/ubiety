@@ -45,7 +45,9 @@ WEB_SOCKET_SWF_LOCATION = "web-socket-js/WebSocketMain.swf";
 				NAME_CHANGE: 1,
 				CHANNEL_LIST: 2,
 				ID_NOTIFY: 3,
-				CHANNEL_JOIN: 4
+				CHANNEL_JOIN: 4,
+				PREVIOUS_MESSAGES: 5,
+				WINDOW_OPEN: 6
 			}
 		},
 		
@@ -183,6 +185,18 @@ WEB_SOCKET_SWF_LOCATION = "web-socket-js/WebSocketMain.swf";
 				case self.constants.opcode.CHANNEL_JOIN:
 					self.$messages.append("<strong>*** " + data[0] + " joined</strong>");
 					break;
+				case self.constants.opcode.PREVIOUS_MESSAGES:
+					var messages = data[0].split(":SPLIT:");
+					for(var i = 0; i < messages.length; i++) {
+						var msg_data = messages[i].split(":MSG:");
+						self.$messages.append("<div><strong>&lt;" + msg_data[0] + "&gt;</strong>&nbsp;" + msg_data[1] + "</div>"); 
+					}
+					break;
+				case self.constants.opcode.WINDOW_OPEN:
+					if(data[0] == "1" && self.window_state == self.constants.window_state.CLOSED) {
+						self.toggleWindow();
+					}
+					break;
 				default:
 					console.log("Unhandled opcode: " + opcode);
 			}
@@ -251,10 +265,12 @@ WEB_SOCKET_SWF_LOCATION = "web-socket-js/WebSocketMain.swf";
 				case self.constants.window_state.CLOSED:
 					//closed window... so open it
 					self.openWindow();
+					self.socket.send(self.constants.opcode.WINDOW_OPEN + "::1");
 					break;
 				case self.constants.window_state.OPEN:
 					//window open.. tear it down..
 					self.closeWindow();
+					self.socket.send(self.constants.opcode.WINDOW_OPEN + "::0");
 					break;
 			}
 		},
