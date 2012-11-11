@@ -126,7 +126,7 @@ WEB_SOCKET_SWF_LOCATION = "web-socket-js/WebSocketMain.swf";
 			if(data[0] == self.my_id) {
 				self.my_name = data[1];
 				self.$change_name.val(self.my_name);
-				self.$messages.append("<div><strong>** You are now known as " + data[1] + "</strong></div>");
+				self.$messages.append("<div><strong>*** You are now known as " + data[1] + "</strong></div>");
 				self.socket.send(self.constants.opcode.CHANNEL_LIST + "::list");
 				return;
 			}
@@ -136,7 +136,7 @@ WEB_SOCKET_SWF_LOCATION = "web-socket-js/WebSocketMain.swf";
 					break;
 				} 
 			}
-			self.$messages.append("<div><strong>** " + old_name + " is now known as " + data[1] + "</strong></div>");
+			self.$messages.append("<div><strong>*** " + old_name + " is now known as " + data[1] + "</strong></div>");
 			self.socket.send(self.constants.opcode.CHANNEL_LIST + "::list");
 		},
 		
@@ -183,7 +183,7 @@ WEB_SOCKET_SWF_LOCATION = "web-socket-js/WebSocketMain.swf";
 					self.my_id = parseInt(data, 10);
 					break;
 				case self.constants.opcode.CHANNEL_JOIN:
-					self.$messages.append("<strong>*** " + data[0] + " joined</strong>");
+					self.$messages.append("<div><strong>*** " + data[0] + " joined</strong></div>");
 					break;
 				case self.constants.opcode.PREVIOUS_MESSAGES:
 					var messages = data[0].split(":SPLIT:");
